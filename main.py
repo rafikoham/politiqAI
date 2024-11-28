@@ -3,7 +3,7 @@ import argparse
 from typing import List, Dict
 from tqdm import tqdm
 
-from config import (
+from politiqAI.config import (
     DATA_DIR, AUDIO_DIR, TRANSCRIPT_DIR, VECTOR_DIR,
     WHISPER_MODEL, FASTTEXT_MODEL, VECTOR_DIMENSION
 )
