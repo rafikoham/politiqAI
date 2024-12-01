@@ -1,0 +1,19 @@
+# Ignore data directory and all its contents
+data/
+data/*
+
+# Python-specific ignores
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+env/
+.env/
+
+# IDE-specific files
+.vscode/
+.idea/
+*.swp
+*.swo
