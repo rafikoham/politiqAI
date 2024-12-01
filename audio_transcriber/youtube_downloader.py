@@ -5,11 +5,13 @@ from typing import Optional, List, Dict
 from tqdm import tqdm
 
 class YouTubeDownloader:
-    def __init__(self, output_dir: str = "data/videos"):
+    def __init__(self, output_dir: str = "data/videos", min_duration_minutes: float = 3.0):
         """Initialize YouTube downloader with output directory"""
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.min_duration_seconds = min_duration_minutes * 60
         print(f"\nVideos will be saved to: {self.output_dir.absolute()}")
+        print(f"Minimum video duration: {min_duration_minutes} minutes")
 
     def download_video(self, url: str, filename: Optional[str] = None) -> Optional[str]:
         """
@@ -28,19 +30,31 @@ class YouTubeDownloader:
                 'quiet': True,
                 'no_warnings': True,
                 'progress_hooks': [self._progress_hook],
+                # Skip live streams
+                'skip_download': False,
+                'playlistrandom': False,
+                'extract_flat': False,
             }
 
-            print(f"\nDownloading: {url}")
+            # First check if it's a live video or too short
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                # Get video info first
                 info = ydl.extract_info(url, download=False)
-                video_title = info.get('title', 'video')
                 
-                # Download the video
+                if info.get('is_live', False):
+                    print(f"Skipping live video: {info.get('title', url)}")
+                    return None
+                
+                duration = info.get('duration', 0)
+                if duration < self.min_duration_seconds:
+                    print(f"Skipping video '{info.get('title', url)}': Duration ({duration}s) is less than minimum required ({self.min_duration_seconds}s)")
+                    return None
+                
+                # Download only if it meets the criteria
+                print(f"\nDownloading: {info.get('title', url)} (Duration: {duration/60:.1f} minutes)")
                 ydl.download([url])
                 
                 # Find the downloaded file
-                for file in self.output_dir.glob(f"{filename or video_title}.*"):
+                for file in self.output_dir.glob(f"{filename or info['title']}.*"):
                     print(f"\nDownloaded to: {file}")
                     return str(file)
 
@@ -93,54 +107,53 @@ class YouTubeDownloader:
         """
         downloaded_files = []
         try:
-            # Configure yt-dlp for search
+            # Configure yt-dlp options for search
             ydl_opts = {
                 'quiet': True,
                 'no_warnings': True,
                 'extract_flat': True,
                 'default_search': 'ytsearch',
-                'playlistrandom': False,
-                'daterange': 'today-365days',  # Only videos from last year
+                'max_downloads': max_results
             }
             
+            # First search for videos
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                # Search for videos
-                search_query = f"ytsearch{max_results}:{query}"
-                results = ydl.extract_info(search_query, download=False)
-                entries = results.get('entries', [])
+                search_results = ydl.extract_info(f"ytsearch{max_results}:{query}", download=False)
+                entries = search_results.get('entries', [])
                 
-                print(f"\nFound {len(entries)} videos matching search: '{query}'")
-                for entry in tqdm(entries, desc="Downloading videos"):
-                    video_url = f"https://www.youtube.com/watch?v={entry['id']}"
-                     # Skip if it's marked as a live video
-                    if entry.get('live_status') in ['is_live', 'is_upcoming']:
-                        print(f"Skipping live/upcoming video: {entry.get('title', video_url)}")
-                        continue                   
-                    file_path = self.download_video(video_url)
-                    if file_path:
-                        downloaded_files.append(file_path)
-                        
+                print(f"\nFound {len(entries)} videos matching search")
+                for entry in entries:
+                    video_url = entry.get('url')
+                    if video_url:
+                        file_path = self.download_video(f"https://www.youtube.com/watch?v={video_url}")
+                        if file_path:
+                            downloaded_files.append(file_path)
+                            
         except Exception as e:
-            print(f"Error searching for '{query}': {str(e)}")
+            print(f"Error searching for {query}: {str(e)}")
             
         return downloaded_files
 
-    @staticmethod
-    def _progress_hook(d: Dict):
-        """Progress hook for yt-dlp"""
+    def _progress_hook(self, d: Dict):
+        """Progress hook for yt-dlp to show download progress"""
         if d['status'] == 'downloading':
-            total_bytes = d.get('total_bytes') or d.get('total_bytes_estimate', 0)
+            total_bytes = d.get('total_bytes')
             downloaded_bytes = d.get('downloaded_bytes', 0)
-            if total_bytes > 0:
-                percentage = (downloaded_bytes / total_bytes) * 100
-                print(f"\rProgress: {percentage:.1f}%", end='')
+            if total_bytes:
+                progress = (downloaded_bytes / total_bytes) * 100
+                print(f"\rDownload progress: {progress:.1f}%", end='')
+
+class AudioTranscriber:
+    def transcribe_file(self, file_path: str):
+        # TO DO: implement transcription logic here
+        print(f"Transcribing file: {file_path}")
 
 def main():
-    # Example usage
-    downloader = YouTubeDownloader()
+    # Initialize downloader and transcriber
+    downloader = YouTubeDownloader(min_duration_minutes=3.0)
+    transcriber = AudioTranscriber()
     
     # Search and download French political interviews
-    # Using a more specific query to get relevant results
     query = "interview politique france macron assemblée nationale -live -direct site:youtube.com"
     print(f"\nSearching for: {query}")
     downloaded_files = downloader.search_and_download(query, max_results=3)
@@ -149,9 +162,13 @@ def main():
         print("\nSuccessfully downloaded videos:")
         for file in downloaded_files:
             print(f"- {file}")
+            
+        # Transcribe downloaded videos
+        print("\nTranscribing downloaded videos...")
+        for video_file in downloaded_files:
+            transcriber.transcribe_file(video_file)
     else:
         print("\nNo videos were downloaded. Please check for errors above.")
 
 if __name__ == "__main__":
     main()
-
