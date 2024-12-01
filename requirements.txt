@@ -1,0 +1,15 @@
+numpy<=2.0.0
+numba
+pandas
+openpyxl
+lxml
+pdfminer.six
+openai-whisper
+fasttext
+faiss-cpu
+python-dotenv
+SQLAlchemy
+nltk
+tqdm
+numpy
+scikit-learn
