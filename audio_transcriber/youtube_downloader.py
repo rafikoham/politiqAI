@@ -99,6 +99,8 @@ class YouTubeDownloader:
                 'no_warnings': True,
                 'extract_flat': True,
                 'default_search': 'ytsearch',
+                'playlistrandom': False,
+                'daterange': 'today-365days',  # Only videos from last year
             }
             
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -110,6 +112,10 @@ class YouTubeDownloader:
                 print(f"\nFound {len(entries)} videos matching search: '{query}'")
                 for entry in tqdm(entries, desc="Downloading videos"):
                     video_url = f"https://www.youtube.com/watch?v={entry['id']}"
+                     # Skip if it's marked as a live video
+                    if entry.get('live_status') in ['is_live', 'is_upcoming']:
+                        print(f"Skipping live/upcoming video: {entry.get('title', video_url)}")
+                        continue                   
                     file_path = self.download_video(video_url)
                     if file_path:
                         downloaded_files.append(file_path)
@@ -130,13 +136,14 @@ class YouTubeDownloader:
                 print(f"\rProgress: {percentage:.1f}%", end='')
 
 def main():
-    # Initialize downloader with explicit output directory
-    downloader = YouTubeDownloader("data/videos")
-    print("\nSearching for French political interviews...")
+    # Example usage
+    downloader = YouTubeDownloader()
     
     # Search and download French political interviews
-    query = "interview politique france 2023"
-    downloaded_files = downloader.search_and_download(query, max_results=5)
+    # Using a more specific query to get relevant results
+    query = "interview politique france macron assemblée nationale -live -direct site:youtube.com"
+    print(f"\nSearching for: {query}")
+    downloaded_files = downloader.search_and_download(query, max_results=3)
     
     if downloaded_files:
         print("\nSuccessfully downloaded videos:")
@@ -147,3 +154,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
