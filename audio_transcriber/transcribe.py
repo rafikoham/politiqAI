@@ -85,7 +85,7 @@ def main():
     parser = argparse.ArgumentParser(description='Transcribe audio files using Whisper')
     parser.add_argument('input', help='Input audio file or directory')
     parser.add_argument('--model', help='Whisper model size (tiny, base, small, medium, large)', default='base')
-    parser.add_argument('--output', help='Output directory for transcripts', default='data/transcripts_v2')
+    parser.add_argument('--output', help='Output directory for transcripts', default='data/transcripts')
     
     args = parser.parse_args()
     
