@@ -3,6 +3,7 @@ import os
 from tqdm import tqdm
 import argparse
 from pathlib import Path
+import spacy
 
 class AudioTranscriber:
     def __init__(self, model_size='base', output_dir='data/transcripts'):
@@ -15,8 +16,11 @@ class AudioTranscriber:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         print("Model loaded successfully!")
 
+        # Load spaCy model for NER
+        self.nlp = spacy.load('en_core_web_sm')
+
     def transcribe_file(self, audio_path):
-        """Transcribe a single audio file"""
+        """Transcribe a single audio file and extract participants"""
         try:
             # Verify file exists and is audio
             if not os.path.exists(audio_path):
@@ -33,6 +37,10 @@ class AudioTranscriber:
                 print("Warning: No speech detected in audio")
                 return None
 
+            # Extract participants using spaCy
+            doc = self.nlp(transcript)
+            participants = [ent.text for ent in doc.ents if ent.label_ == 'PERSON']
+
             # Create output filename based on the video name
             audio_filename = Path(audio_path).stem
             output_path = self.output_dir / f"{audio_filename}.txt"
@@ -42,7 +50,10 @@ class AudioTranscriber:
                 f.write(transcript)
             print(f"Transcript saved to: {output_path}")
 
-            return str(output_path)
+            return {
+                'transcript_path': str(output_path),
+                'participants': list(set(participants))  # Return unique names
+            }
 
         except Exception as e:
             print(f"Error processing {audio_path}: {str(e)}")
