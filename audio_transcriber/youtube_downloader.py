@@ -1,17 +1,14 @@
 import yt_dlp
 import os
 from pathlib import Path
-from typing import Optional, List, Dict
-from tqdm import tqdm
+from typing import Optional, List
 
 class YouTubeDownloader:
-    def __init__(self, output_dir: str = "data/videos", min_duration_minutes: float = 3.0):
-        """Initialize YouTube downloader with output directory"""
+    def __init__(self, output_dir: str = "data/videos", min_duration_minutes: float = 10.0):
+        """Initialize YouTube downloader with output directory and minimum duration"""
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.min_duration_seconds = min_duration_minutes * 60
-        print(f"\nVideos will be saved to: {self.output_dir.absolute()}")
-        print(f"Minimum video duration: {min_duration_minutes} minutes")
 
     def download_video(self, url: str, filename: Optional[str] = None) -> Optional[str]:
         """
@@ -29,7 +26,6 @@ class YouTubeDownloader:
                 'outtmpl': str(self.output_dir / (filename or '%(title)s')) + '.%(ext)s',
                 'quiet': True,
                 'no_warnings': True,
-                'progress_hooks': [self._progress_hook],
                 # Skip live streams
                 'skip_download': False,
                 'playlistrandom': False,
@@ -62,40 +58,6 @@ class YouTubeDownloader:
             print(f"Error downloading {url}: {str(e)}")
             return None
 
-    def download_playlist(self, url: str) -> List[str]:
-        """
-        Download all videos from a YouTube playlist
-        Args:
-            url: YouTube playlist URL
-        Returns:
-            List of paths to downloaded files
-        """
-        downloaded_files = []
-        try:
-            # First get playlist info
-            ydl_opts = {
-                'quiet': True,
-                'no_warnings': True,
-                'extract_flat': True,
-            }
-            
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                playlist_info = ydl.extract_info(url, download=False)
-                entries = playlist_info.get('entries', [])
-                
-                print(f"\nFound {len(entries)} videos in playlist")
-                for entry in tqdm(entries, desc="Downloading playlist"):
-                    video_url = entry.get('url')
-                    if video_url:
-                        file_path = self.download_video(f"https://www.youtube.com/watch?v={video_url}")
-                        if file_path:
-                            downloaded_files.append(file_path)
-                            
-        except Exception as e:
-            print(f"Error processing playlist {url}: {str(e)}")
-            
-        return downloaded_files
-
     def search_and_download(self, query: str, max_results: int = 5) -> List[str]:
         """
         Search YouTube for videos and download them
@@ -123,52 +85,33 @@ class YouTubeDownloader:
                 
                 print(f"\nFound {len(entries)} videos matching search")
                 for entry in entries:
-                    video_url = entry.get('url')
-                    if video_url:
-                        file_path = self.download_video(f"https://www.youtube.com/watch?v={video_url}")
-                        if file_path:
-                            downloaded_files.append(file_path)
-                            
+                    video_url = f"https://www.youtube.com/watch?v={entry['id']}"
+                    file_path = self.download_video(video_url)
+                    if file_path:
+                        downloaded_files.append(file_path)
+
         except Exception as e:
-            print(f"Error searching for {query}: {str(e)}")
-            
+            print(f"Error searching for videos: {str(e)}")
+
         return downloaded_files
 
-    def _progress_hook(self, d: Dict):
-        """Progress hook for yt-dlp to show download progress"""
-        if d['status'] == 'downloading':
-            total_bytes = d.get('total_bytes')
-            downloaded_bytes = d.get('downloaded_bytes', 0)
-            if total_bytes:
-                progress = (downloaded_bytes / total_bytes) * 100
-                print(f"\rDownload progress: {progress:.1f}%", end='')
-
-class AudioTranscriber:
-    def transcribe_file(self, file_path: str):
-        # TO DO: implement transcription logic here
-        print(f"Transcribing file: {file_path}")
 
 def main():
-    # Initialize downloader and transcriber
-    downloader = YouTubeDownloader(min_duration_minutes=3.0)
-    transcriber = AudioTranscriber()
+    # Initialize downloader
+    downloader = YouTubeDownloader(min_duration_minutes=10.0)
     
     # Search and download French political interviews
-    query = "interview politique france macron assemblée nationale -live -direct site:youtube.com"
+    query = "Jean-Philippe Tanguy interview politique France -shorts -live -direct"
     print(f"\nSearching for: {query}")
-    downloaded_files = downloader.search_and_download(query, max_results=3)
+    downloaded_files = downloader.search_and_download(query, max_results=30)
     
     if downloaded_files:
-        print("\nSuccessfully downloaded videos:")
+        print("\nDownloaded files:")
         for file in downloaded_files:
             print(f"- {file}")
-            
-        # Transcribe downloaded videos
-        print("\nTranscribing downloaded videos...")
-        for video_file in downloaded_files:
-            transcriber.transcribe_file(video_file)
     else:
         print("\nNo videos were downloaded. Please check for errors above.")
+
 
 if __name__ == "__main__":
     main()
