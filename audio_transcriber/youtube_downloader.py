@@ -1,5 +1,6 @@
 import yt_dlp
 import os
+import json
 from pathlib import Path
 from typing import Optional, List
 
@@ -52,6 +53,20 @@ class YouTubeDownloader:
                 # Find the downloaded file
                 for file in self.output_dir.glob(f"{filename or info['title']}.*"):
                     print(f"\nDownloaded to: {file}")
+
+                    # Save metadata to JSON
+                    metadata = {
+                        'title': info.get('title', 'Unknown Title'),
+                        'uploader': info.get('uploader', 'Unknown Uploader'),
+                        'upload_date': info.get('upload_date', 'Unknown Date'),
+                        'duration': duration,
+                        'url': url
+                    }
+                    json_path = self.output_dir / f"{filename or info['title']}.json"
+                    with open(json_path, 'w', encoding='utf-8') as json_file:
+                        json.dump(metadata, json_file, ensure_ascii=False, indent=4)
+                    print(f"Metadata saved to: {json_path}")
+
                     return str(file)
 
         except Exception as e:
@@ -101,9 +116,9 @@ def main():
     downloader = YouTubeDownloader(min_duration_minutes=10.0)
     
     # Search and download French political interviews
-    query = "Jean-Philippe Tanguy interview politique France -shorts -live -direct"
+    query = "Mathilde Panot interview politique France -live -direct"
     print(f"\nSearching for: {query}")
-    downloaded_files = downloader.search_and_download(query, max_results=30)
+    downloaded_files = downloader.search_and_download(query, max_results=10)
     
     if downloaded_files:
         print("\nDownloaded files:")
