@@ -17,3 +17,6 @@ env/
 .idea/
 *.swp
 *.swo
+
+# PROJET Specified files
+config.py 
