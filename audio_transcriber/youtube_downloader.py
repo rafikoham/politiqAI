@@ -65,6 +65,9 @@ class YouTubeDownloader:
                     'upload_date': info.get('upload_date', 'Unknown Date'),
                     'duration': duration,
                     'url': url,
+                    'view_count': info.get('view_count', 0),
+                    'like_count': info.get('like_count', 0),
+                    'comment_count': info.get('comment_count', 0),
                     'description': info.get('description', 'No Description')
                 }
 
@@ -77,7 +80,7 @@ class YouTubeDownloader:
                     return None
 
                 # Sanitize filename to remove invalid characters
-                safe_filename = (filename or info['title']).replace(':', '').replace('|', '').replace('/', '_').replace('\\', '_')
+                safe_filename = metadata['title'].translate(str.maketrans('', '', ':?<>|"/\\'))
 
                 # Save metadata to JSON before downloading
                 try:
@@ -152,12 +155,11 @@ def main():
     
     # Search and download French political interviews
     query = """
-        (Interview OR Entretien OR Débat) politique France 
-        (TF1 OR France24 OR BFMTV OR LCI OR 'Public Sénat' OR Europe1 OR 'France Inter') 
-        -politique-fiction -live -direct -musique -cinéma -sport -humour
+        (Interview OR Entretien OR Débat) Jean-Luc Mélanchon politique France 
+         -live -direct -musique 
     """
     logger.info(f"\nSearching for: {query}")
-    downloaded_files = downloader.search_and_download(query, max_results=10)
+    downloaded_files = downloader.search_and_download(query, max_results=30)
     
     if downloaded_files:
         logger.info("\nDownloaded files:")
