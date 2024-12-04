@@ -3,6 +3,16 @@ import os
 import json
 from pathlib import Path
 from typing import Optional, List
+from loguru import logger
+import sys
+
+# Configure loguru with colored output
+logger.remove()  # Remove default handler
+logger.add(
+    sys.stdout,
+    format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
+    colorize=True
+)
 
 class YouTubeDownloader:
     def __init__(self, output_dir: str = "data/videos", metadata_dir: str = "data/metadata", min_duration_minutes: float = 10.0):
@@ -40,48 +50,55 @@ class YouTubeDownloader:
                 info = ydl.extract_info(url, download=False)
                 
                 if info.get('is_live', False):
-                    print(f"Skipping live video: {info.get('title', url)}")
+                    logger.info(f"Skipping live video: {info.get('title', url)}")
                     return None
                 
                 duration = info.get('duration', 0)
                 if duration < self.min_duration_seconds:
-                    print(f"Skipping video '{info.get('title', url)}': Duration ({duration}s) is less than minimum required ({self.min_duration_seconds}s)")
+                    logger.info(f"Skipping video '{info.get('title', url)}': Duration ({duration}s) is less than minimum required ({self.min_duration_seconds}s)")
                     return None
                 
                 # Ensure metadata is available before downloading
-                if not info.get('title') or not info.get('uploader'):
-                    print(f"Skipping video '{url}': Missing critical metadata.")
+                metadata = {
+                    'title': info.get('title'),
+                    'uploader': info.get('uploader'),
+                    'upload_date': info.get('upload_date'),
+                    'duration': duration,
+                    'url': url,
+                    'view_count': info.get('view_count'),
+                    'like_count': info.get('like_count'),
+                    'comment_count': info.get('comment_count'),
+                    'description': info.get('description')
+                }
+
+                # Check for critical metadata presence
+                if not metadata['title'] or not metadata['uploader']:
+                    logger.warning(f"Skipping video '{url}': Missing critical metadata.")
                     return None
 
-                # Download only if metadata is complete
-                print(f"\nDownloading: {info.get('title', 'Unknown Title')} (Duration: {duration/60:.1f} minutes)")
+                # Save metadata to JSON before downloading
+                json_path = self.metadata_dir / f"{filename or info['title']}.json"
+                with open(json_path, 'w', encoding='utf-8') as json_file:
+                    json.dump(metadata, json_file, ensure_ascii=False, indent=4)
+                logger.info(f"<red>Metadata saved to: {json_path}</red>")
+
+                # Check if JSON metadata file exists before downloading
+                if not json_path.exists():
+                    logger.warning(f"Skipping video '{url}': Metadata JSON not saved.")
+                    return None
+
+                # Download only if JSON metadata is saved
+                logger.info(f"<green>Downloading: {info.get('title', 'Unknown Title')} (Duration: {duration/60:.1f} minutes)</green>")
                 ydl.download([url])
                 
                 # Find the downloaded file
                 for file in self.output_dir.glob(f"{filename or info['title']}.*"):
-                    print(f"\nDownloaded to: {file}")
-
-                    # Save metadata to JSON
-                    metadata = {
-                        'title': info.get('title', 'Unknown Title'),
-                        'uploader': info.get('uploader', 'Unknown Uploader'),
-                        'upload_date': info.get('upload_date', 'Unknown Date'),
-                        'duration': duration,
-                        'url': url,
-                        'view_count': info.get('view_count', 0),
-                        'like_count': info.get('like_count', 0),
-                        'comment_count': info.get('comment_count', 0),
-                        'description': info.get('description', 'No Description')
-                    }
-                    json_path = self.metadata_dir / f"{filename or info['title']}.json"
-                    with open(json_path, 'w', encoding='utf-8') as json_file:
-                        json.dump(metadata, json_file, ensure_ascii=False, indent=4)
-                    print(f"Metadata saved to: {json_path}")
+                    logger.info(f"<green>Downloaded to: {file}</green>")
 
                     return str(file)
 
         except Exception as e:
-            print(f"Error downloading {url}: {str(e)}")
+            logger.error(f"Error downloading {url}: {str(e)}")
             return None
 
     def search_and_download(self, query: str, max_results: int = 5) -> List[str]:
@@ -109,7 +126,7 @@ class YouTubeDownloader:
                 search_results = ydl.extract_info(f"ytsearch{max_results}:{query}", download=False)
                 entries = search_results.get('entries', [])
                 
-                print(f"\nFound {len(entries)} videos matching search")
+                logger.info(f"\nFound {len(entries)} videos matching search")
                 for entry in entries:
                     video_url = f"https://www.youtube.com/watch?v={entry['id']}"
                     file_path = self.download_video(video_url)
@@ -117,7 +134,7 @@ class YouTubeDownloader:
                         downloaded_files.append(file_path)
 
         except Exception as e:
-            print(f"Error searching for videos: {str(e)}")
+            logger.error(f"Error searching for videos: {str(e)}")
 
         return downloaded_files
 
@@ -127,16 +144,16 @@ def main():
     downloader = YouTubeDownloader(min_duration_minutes=10.0, metadata_dir="data/metadata")
     
     # Search and download French political interviews
-    query = "Michel Barnier interview politique France -live -direct"
-    print(f"\nSearching for: {query}")
-    downloaded_files = downloader.search_and_download(query, max_results=20)
+    query = "Mathilde Panot interview politique France -live -direct"
+    logger.info(f"\nSearching for: {query}")
+    downloaded_files = downloader.search_and_download(query, max_results=10)
     
     if downloaded_files:
-        print("\nDownloaded files:")
+        logger.info("\nDownloaded files:")
         for file in downloaded_files:
-            print(f"- {file}")
+            logger.info(f"- {file}")
     else:
-        print("\nNo videos were downloaded. Please check for errors above.")
+        logger.warning("\nNo videos were downloaded. Please check for errors above.")
 
 
 if __name__ == "__main__":
