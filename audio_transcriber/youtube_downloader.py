@@ -155,11 +155,11 @@ def main():
     
     # Search and download French political interviews
     query = """
-        (Interview OR Entretien OR Débat) Jean-Luc Mélanchon politique France 
+        (Interview OR Entretien OR Débat) Benoît Hamon politique France 
          -live -direct -musique 
     """
     logger.info(f"\nSearching for: {query}")
-    downloaded_files = downloader.search_and_download(query, max_results=30)
+    downloaded_files = downloader.search_and_download(query, max_results=40)
     
     if downloaded_files:
         logger.info("\nDownloaded files:")
