@@ -58,29 +58,39 @@ class YouTubeDownloader:
                     logger.info(f"Skipping video '{info.get('title', url)}': Duration ({duration}s) is less than minimum required ({self.min_duration_seconds}s)")
                     return None
                 
-                # Ensure metadata is available before downloading
+                # Validate and clean metadata
                 metadata = {
-                    'title': info.get('title'),
-                    'uploader': info.get('uploader'),
-                    'upload_date': info.get('upload_date'),
+                    'title': info.get('title', 'Unknown Title'),
+                    'uploader': info.get('uploader', 'Unknown Uploader'),
+                    'upload_date': info.get('upload_date', 'Unknown Date'),
                     'duration': duration,
                     'url': url,
-                    'view_count': info.get('view_count'),
-                    'like_count': info.get('like_count'),
-                    'comment_count': info.get('comment_count'),
-                    'description': info.get('description')
+                    'view_count': info.get('view_count', 0),
+                    'like_count': info.get('like_count', 0),
+                    'comment_count': info.get('comment_count', 0),
+                    'description': info.get('description', 'No Description')
                 }
+
+                # Log metadata details
+                logger.debug(f"Metadata extracted: {metadata}")
 
                 # Check for critical metadata presence
                 if not metadata['title'] or not metadata['uploader']:
                     logger.warning(f"Skipping video '{url}': Missing critical metadata.")
                     return None
 
+                # Sanitize filename to remove invalid characters
+                safe_filename = (filename or info['title']).replace(':', '').replace('|', '').replace('/', '_').replace('\\', '_')
+
                 # Save metadata to JSON before downloading
-                json_path = self.metadata_dir / f"{filename or info['title']}.json"
-                with open(json_path, 'w', encoding='utf-8') as json_file:
-                    json.dump(metadata, json_file, ensure_ascii=False, indent=4)
-                logger.info(f"<red>Metadata saved to: {json_path}</red>")
+                try:
+                    json_path = self.metadata_dir / f"{safe_filename}.json"
+                    with open(json_path, 'w', encoding='utf-8') as json_file:
+                        json.dump(metadata, json_file, ensure_ascii=False, indent=4)
+                    logger.info(f"<red>Metadata saved to: {json_path}</red>")
+                except Exception as e:
+                    logger.error(f"Error saving metadata to JSON: {str(e)}")
+                    return None
 
                 # Check if JSON metadata file exists before downloading
                 if not json_path.exists():
@@ -144,7 +154,11 @@ def main():
     downloader = YouTubeDownloader(min_duration_minutes=10.0, metadata_dir="data/metadata")
     
     # Search and download French political interviews
-    query = "Mathilde Panot interview politique France -live -direct"
+    query = """
+        (Interview OR Entretien OR Débat) politique France 
+        (TF1 OR France24 OR BFMTV OR LCI OR 'Public Sénat' OR Europe1 OR 'France Inter') 
+        -politique-fiction -live -direct -musique -cinéma -sport -humour
+    """
     logger.info(f"\nSearching for: {query}")
     downloaded_files = downloader.search_and_download(query, max_results=10)
     
