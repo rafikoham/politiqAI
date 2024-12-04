@@ -65,9 +65,6 @@ class YouTubeDownloader:
                     'upload_date': info.get('upload_date', 'Unknown Date'),
                     'duration': duration,
                     'url': url,
-                    'view_count': info.get('view_count', 0),
-                    'like_count': info.get('like_count', 0),
-                    'comment_count': info.get('comment_count', 0),
                     'description': info.get('description', 'No Description')
                 }
 
