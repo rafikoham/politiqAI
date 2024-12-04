@@ -5,10 +5,12 @@ from pathlib import Path
 from typing import Optional, List
 
 class YouTubeDownloader:
-    def __init__(self, output_dir: str = "data/videos", min_duration_minutes: float = 10.0):
+    def __init__(self, output_dir: str = "data/videos", metadata_dir: str = "data/metadata", min_duration_minutes: float = 10.0):
         """Initialize YouTube downloader with output directory and minimum duration"""
         self.output_dir = Path(output_dir)
+        self.metadata_dir = Path(metadata_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.metadata_dir.mkdir(parents=True, exist_ok=True)
         self.min_duration_seconds = min_duration_minutes * 60
 
     def download_video(self, url: str, filename: Optional[str] = None) -> Optional[str]:
@@ -46,8 +48,13 @@ class YouTubeDownloader:
                     print(f"Skipping video '{info.get('title', url)}': Duration ({duration}s) is less than minimum required ({self.min_duration_seconds}s)")
                     return None
                 
-                # Download only if it meets the criteria
-                print(f"\nDownloading: {info.get('title', url)} (Duration: {duration/60:.1f} minutes)")
+                # Ensure metadata is available before downloading
+                if not info.get('title') or not info.get('uploader'):
+                    print(f"Skipping video '{url}': Missing critical metadata.")
+                    return None
+
+                # Download only if metadata is complete
+                print(f"\nDownloading: {info.get('title', 'Unknown Title')} (Duration: {duration/60:.1f} minutes)")
                 ydl.download([url])
                 
                 # Find the downloaded file
@@ -60,9 +67,13 @@ class YouTubeDownloader:
                         'uploader': info.get('uploader', 'Unknown Uploader'),
                         'upload_date': info.get('upload_date', 'Unknown Date'),
                         'duration': duration,
-                        'url': url
+                        'url': url,
+                        'view_count': info.get('view_count', 0),
+                        'like_count': info.get('like_count', 0),
+                        'comment_count': info.get('comment_count', 0),
+                        'description': info.get('description', 'No Description')
                     }
-                    json_path = self.output_dir / f"{filename or info['title']}.json"
+                    json_path = self.metadata_dir / f"{filename or info['title']}.json"
                     with open(json_path, 'w', encoding='utf-8') as json_file:
                         json.dump(metadata, json_file, ensure_ascii=False, indent=4)
                     print(f"Metadata saved to: {json_path}")
@@ -113,12 +124,12 @@ class YouTubeDownloader:
 
 def main():
     # Initialize downloader
-    downloader = YouTubeDownloader(min_duration_minutes=10.0)
+    downloader = YouTubeDownloader(min_duration_minutes=10.0, metadata_dir="data/metadata")
     
     # Search and download French political interviews
-    query = "Mathilde Panot interview politique France -live -direct"
+    query = "Michel Barnier interview politique France -live -direct"
     print(f"\nSearching for: {query}")
-    downloaded_files = downloader.search_and_download(query, max_results=10)
+    downloaded_files = downloader.search_and_download(query, max_results=20)
     
     if downloaded_files:
         print("\nDownloaded files:")
